@@ -1,0 +1,748 @@
+\documentclass[12pt,twoside]{article}
+\usepackage[letterpaper, textwidth=6.5in, textheight=9in]{geometry}
+
+\usepackage{amsmath}
+\usepackage{amssymb,amsthm,graphicx}
+\usepackage{epsfig}
+\usepackage[mathcal]{euscript}
+\usepackage{setspace}
+\usepackage{color}
+\usepackage{array}
+\usepackage{times}
+\usepackage{subfigure}
+\renewcommand{\ttdefault}{cmtt}
+% The float package HAS to load before hyperref
+\usepackage{float} % for psuedocode formatting
+\usepackage{xspace}
+\usepackage{mathrsfs}
+\usepackage[pdftex]{hyperref}
+
+\newcommand{\ve}[1]{\ensuremath{\mathbf{#1}}}
+\newcommand{\vOmega}{\ensuremath{\hat{\Omega}}}
+
+\date{\today}
+\title{Literature Review}
+\author{Rachel Slaybaugh}
+\begin{document}
+%-----------------------------------------------
+\maketitle
+
+\begin{center}
+\underline{\textbf{WWG-type methods}}
+\end{center}
+
+The weight window generator uses Monte Carlo calculations to successively create a weight window map. This requires multiple MC calculations to get enough particles through the geometry to get a sufficiently converged map. It also often requires user correction/intervention - requiring some MC expertise. This is often slow, computationally intensive, and non-optimal. 
+
+Some related methods are the Direct Statistical Approach (DSA), which uses an MC forward calculation and attempts to maximize the FOM, and the quasi-deterministic (QD) method, which also does a forward MC precalculation and works to minimize the variance. \cite{Turner1997a}
+
+All of these are plagued by potential high costs and statistical error. 
+
+\vspace*{3em}
+%-----------------------------------------------
+\begin{center}
+\underline{\textbf{AVATAR}} \cite{AVATAR1997}
+\end{center}
+
+AVATAR is targeted to get a single response.
+
+AVATAR's relationship to the zero variance method is that it attempts to keep particle weight constant \cite{Turner1997a}.
+
+AVATAR is accessed through a gui, Justine. A weight window mesh (generated automatically by Justine, though it can be user-modified) is superimposed over the MC geometry, runs THREEDANT in adjoint mode, constructs weight windows, and runs MCNP. If transport effects are not prominent, a diffusion solution may be used instead. 
+
+\vspace*{1em}
+\noindent \textit{Scalar wws}\\
+AVATAR uses the inverse of the scalar adjoint fluxes as the lower ww boundary in each mesh and each group. These are normalized so the source particles are born with weights in the weight windows. 
+
+\vspace*{1em}
+\noindent \textit{Angular-dependent wws}\\
+To get around using the angular flux, angular flux is approximated using information theory. First, assume that the adjoint angular flux, $\psi^{\dagger}$, is symmetric about the average current vector, $\vec{J}^{\dagger}$:
+\begin{align}
+  \psi^{\dagger}(\vOmega) &\approx \psi^{\dagger}(\vOmega \cdot \hat{n}) \:, \\
+  \hat{n} &\equiv \frac{\vec{J}^{\dagger}}{||\vec{J}^{\dagger}||} \:.
+\end{align}
+This assumption implies that the angular flux is locally 1D and points in the direction of increasing importance. 
+
+Information theory indicates that $\psi^{\dagger}(\vOmega \cdot \hat{n})$ can be approximated by the maximum entropy distribution, where $f(\vOmega \cdot \hat{n})$ describes the shape of the azimuthally-symmetric current at $(\vec{r}, E)$:
+\begin{align}
+  \psi^{\dagger}(\vOmega \cdot \hat{n}) &\approx \phi^{\dagger} f(\vOmega \cdot \hat{n}) \\
+  %
+  f(\vOmega \cdot \hat{n}) &= \frac{\lambda \exp[(\vOmega \cdot \hat{n})\lambda]}{2 \sinh(\lambda)} \:, \qquad \text{where} \\
+  %
+  \lambda &= \frac{2.99821 \bar{\mu} - 2.2669248 \bar{\mu}^2}{1 - 0.769332 \bar{\mu} - 0.519928\bar{\mu}^2 + 0.2691594\bar{\mu}^3} \:; \bar{\mu} \in [0, 0.8001) \\
+   \lambda &= \frac{1}{1 - \bar{\mu}} \:; \qquad \qquad \qquad \qquad \qquad \qquad \qquad \qquad \bar{\mu} \in [0.8001, 1] \:, \\
+   %
+   \bar{\mu} &=  \frac{||\vec{J}^{\dagger}||}{\phi^{\dagger}}\:.
+\end{align}
+This approximation of $\psi^{\dagger}$ is exact in the isotropic and streaming limits. If the adjoint angular flux were a delta function in angle, the corresponding weight window would try to kill every particle not going in the exact desired direction.  
+
+\vspace*{1em}
+\noindent \textit{Results}\\
+Oil-well problem with 3 detectors. All 3 methods (diffusion, transport, angle) performed better than the WWG (2-5x faster). Diffusion and transport without angle performed about the same. 
+
+\vspace*{3em}
+%-----------------------------------------------
+\begin{center}
+\underline{\textbf{Zero Variance Method}} \cite{Turner1997a}
+\end{center}
+The goal is to determine a detector response in group $G$ ($1 \leq g \leq G$) and region $D_d$ to a fixed source, $Q(\vec{r})$ in region $D_s$:
+\begin{equation}
+  R = \frac{1}{4 \pi} \int_{D_d} \int_{4\pi} \Sigma(\vec{r})\psi_{G}(\vec{r}, \vOmega) d\vOmega dr \:,
+\end{equation}
+where $\Sigma(\vec{r})$ is the response. [could use another group, but this work assumes--for simplicity--that all particles are born in the first group and are tallied in the last]. We would like to follow a single particle from source to detector, and have its score determine the correct answer.
+
+The zero-variance method involves using the solution of an adjoint transport problem to transform the forward problem into one that can be solved by using analog MC with zero variance. Recall: $\psi_g^{\dagger}(\vec{r}, \vOmega)$ indicates how important particles at $\vec{r}$ in $g$ moving in $\vOmega$ are to the desired answer. They show the response can also be defined in terms of the adjoint as
+\begin{equation}
+  R = \frac{1}{4 \pi} \int_{D_s} \int_{4\pi} \psi^{\dagger}_{1}(\vec{r}, \vOmega) Q(\vec{r}) d\vOmega dr \:. 
+ \label{eq:adjResponse}
+\end{equation}
+
+Idea: combine forward and adjoint solutions so that particles carry information about the importance of the response to the detector.
+\begin{align}
+  \xi_g(\vec{r}, \vOmega) &\equiv \psi_g(\vec{r}, \vOmega)\psi_g^{\dagger}(\vec{r}, \vOmega) \:, \qquad \text{sub this into the TE}\\
+   %
+  &\nonumber\\
+  %
+  &\vOmega \cdot \nabla \xi_g(\vec{r}, \vOmega) + 
+  \bigl[ \sigma_{t,g}(\vec{r}) - \frac{1}{\psi_g^{\dagger}(\vec{r}, \vOmega)}\vOmega \cdot \nabla \psi_g^{\dagger}(\vec{r}, \vOmega) \bigr] \xi_g(\vec{r}, \vOmega) \nonumber \\
+  &= \frac{1}{4 \pi} \sum_{g'=1}^{G} \int_{4 \pi} \sigma_{s, g' \rightarrow g}(\vec{r}, \vOmega' \cdot \vOmega) \frac{\psi_g^{\dagger}(\vec{r}, \vOmega)}{\psi_{g'}^{\dagger}(\vec{r}, \vOmega')} \xi_{g'}(\vec{r}, \vOmega') d \vOmega' 
+  + \frac{\psi_g^{\dagger}(\vec{r}, \vOmega)}{4 \pi} Q(\vec{r}) \delta_{g,1} \:.
+\end{align}
+We can define ``effective" cross sections to get a form of the $\xi$ TE that is identical to the $\psi$ TE:
+\begin{align}
+  \Sigma_{t,g}(\vec{r}, \vOmega) &= \sigma_{t,g}(\vec{r}) - \frac{1}{\psi_g^{\dagger}(\vec{r}, \vOmega)}\vOmega \cdot \nabla \psi_g^{\dagger}(\vec{r}, \vOmega) \:, \label{eq:effectiveSigT} \\
+  %
+  \Sigma_{s,g' \rightarrow g}(\vec{r}, \vOmega' \rightarrow \vOmega) &= \sigma_{s, g' \rightarrow g}(\vec{r}, \vOmega' \cdot \vOmega) \frac{\psi_g^{\dagger}(\vec{r}, \vOmega)}{\psi_{g'}^{\dagger}(\vec{r}, \vOmega')} \:. \label{eq:effectiveSigS}
+\end{align}
+
+All of this means that for $\vec{r} \in D$, $1 \leq g \leq G$:
+\begin{align}
+  \vOmega \cdot \nabla \xi_g(\vec{r}, \vOmega) &+ 
+   \Sigma_{t,g}(\vec{r}, \vOmega) \xi_g(\vec{r}, \vOmega) \nonumber \\
+  &= \frac{1}{4 \pi} \sum_{g'=1}^{G} \int_{4 \pi} \Sigma_{s,g' \rightarrow g}(\vec{r}, \vOmega' \rightarrow \vOmega) \xi_{g'}(\vec{r}, \vOmega') d \vOmega' 
+  + \frac{\psi_g^{\dagger}(\vec{r}, \vOmega)}{4 \pi} Q(\vec{r}) \delta_{g,1} \:; \label{eq:newTE}\\
+   %
+  & \nonumber \\
+  %
+  \xi_g(\vec{r}, \vOmega) &= 0 \qquad \text{for } \vOmega \cdot \hat{n}_b < 0 \:, \: \vec{r}_b \in \partial D \:, \: 1 \leq g \leq G \:; \\
+  %
+  Q(\vec{r}) &= 1  \qquad \text{for } \vec{r} \in D_s \text{ and }0\text{ otherwise.}
+\end{align}
+
+A few equation manipulations can be done to show that Eqn.~\eqref{eq:newTE} is (a)  conservative (particles are neither created nor lost) in all of phase-space except for group $G$ in the detector location and (b) has no leakage. To demonstrate the zero-variance, the authors go through the exercise of considering applying analog MC to this transformed problem.
+
+\vspace*{1em}
+\noindent \textit{Applying Monte Carlo}
+
+The transformed source is defined in Eqn.~\eqref{eq:xformSrc}. If Eqn.~\eqref{eq:adjResponse} is used and things are rearranged, a transformed source is Eqn.~\eqref{eq:sampleSource}:
+\begin{align}
+  Q(\vec{r}, \vOmega) &=  \frac{\psi^{\dagger}_{g}(\vec{r}, \vOmega)}{4 \pi} Q(\vec{r}) \delta_{g,1} \:,
+  \label{eq:xformSrc} \\
+%
+  Q(\vec{r}, \vOmega) &= \delta_{g,1} \Biggl[\frac{\psi^{\dagger}_{1}(\vec{r}, \vOmega) Q(\vec{r})}{\int_{D_s} \int_{4\pi} \psi^{\dagger}_{1}(\vec{r}, \vOmega) Q(\vec{r}) d\vOmega dr} \Biggr] R \:, \label{eq:sampleSource}
+\end{align}
+where the term in brackets is the pdf for choosing particle position and direction (in this derivation they can only be born in group 1, so an energy biasing strategy would be needed otherwise). This shows that each particle is born with a weight that is equal to the response, $R$. 
+
+They next consider distance to collision, which is proportional to $\Sigma_{t,g}^{-1}(\vec{r}, \vOmega)$. The definition of this ``effective" total cross section (Eqn.~\eqref{eq:effectiveSigT}) indicates that the distance depends on the slope of the adjoint solution, meaning that particles heading in directions of increasing importance will have fewer collisions and particles heading in unimportant directions will have more--funneling particles in important directions. 
+
+Further manipulations are done to get the pdfs for sampling what happens after a collision. They start with the scattering integral from Eqn.~\eqref{eq:newTE} and multiply and divide by the ``effective" total cross section:
+\begin{equation}
+ \sum_{g'=1}^{G} \int_{4 \pi}  \Sigma_{t,g'}(\vec{r}, \vOmega') \xi_{g'}(\vec{r}, \vOmega') \Biggl[ \frac{\frac{1}{4 \pi} \Sigma_{s,g' \rightarrow g}(\vec{r}, \vOmega' \rightarrow \vOmega)}{\Sigma_{t,g'}(\vec{r}, \vOmega')} \Biggr]  d \vOmega' \:.
+ \label{eq:modScattering}
+\end{equation}
+To see pdfs for sampling, some machinations (the adjoint TE is divided by $\psi^{\dagger}_{g}(\vec{r}, \vOmega)$, all the primes are switched, the source is moved to the left, and some cross section terms are subbed in) to this term are done to get
+\begin{align}
+   &\underbrace{\frac{\Sigma_{s, g' \rightarrow g}(\vec{r}, \vOmega' \rightarrow \vOmega)}{\int_{4 \pi} \Sigma_{s, g' \rightarrow g}(\vec{r}, \vOmega' \rightarrow \vOmega'') d\vOmega''}}_{p(\vOmega' \rightarrow \vOmega)} \times 
+   %
+   \underbrace{\frac{\int_{4 \pi} \Sigma_{s, g' \rightarrow g}(\vec{r}, \vOmega' \rightarrow \vOmega'') d\vOmega''}{\sum_{g''=1}^{G} \int_{4 \pi} \Sigma_{s, g' \rightarrow g''}(\vec{r}, \vOmega' \rightarrow \vOmega'') d\vOmega''}}_{p(g' \rightarrow g)}\nonumber \\
+   %
+  &\nonumber\\
+  %
+  &\times  \underbrace{\frac{\frac{1}{4 \pi}\sum_{g''=1}^{G} \int_{4 \pi} \Sigma_{s, g' \rightarrow g''}(\vec{r}, \vOmega' \rightarrow \vOmega'') d\vOmega''}
+  {\frac{1}{4 \pi}\sum_{g=1}^{G} \int_{4 \pi} \Sigma_{s, g' \rightarrow g}(\vec{r}, \vOmega' \rightarrow \vOmega) d\vOmega 
+  + \frac{\frac{1}{4\pi} \Sigma(\vec{r}) \delta_{g',G}}{\psi^{\dagger}_{g'}(\vec{r}, \vOmega')}}}_{p(\text{non-absorption})} \:.
+  \label{eq:scatteringPDFs}
+\end{align}
+The probability of survival (non-absorption) is $1$ except in the detector location in group $G$, where it is less than $1$. Looking at the scattering term (Eqn.~\eqref{eq:effectiveSigS}) used in these pdfs, new directions and energies are biased toward values with higher importance (adjoint flux). 
+
+In summary:
+\begin{itemize}
+\item particles can only be absorbed in the detector (every particle will score)
+\item particles are born with weights that are equal to the detector response (every particle has the ideal weight)
+\item particle weight can only be contributed to the detector (all particle weight counts to the score of interest)
+\item only one particle is needed, and there will be zero variance!
+\end{itemize} 
+
+
+
+%-----------------------------------------------
+\begin{center}
+\underline{\textbf{LIFT}} \cite{Turner1997a}, \cite{Turner1997b}
+\end{center}
+
+This method also targets a single response.
+
+The Local Importance Function Transform (LIFT) method replaces the exact adjoint angular flux in the zero-variance method with an analytical approximation that contains information from an approximate deterministic calculation. The adjoint flux approximation is piecewise continuous in space and angle, and is used to create biasing parameters for use in a foward, multigroup, Monte Caro source-detector problem. The biasing parameters are local in space, energy, and angle. 
+
+LIFT is similar to exponential transform, except that it uses energy and angle biasing as well. LIFT only captures linearly-anisotropic scattering. LIFT is usually used in conjunction with (space and energy) weight windows, and fine-tuning from the user is often required to make it work well. 
+
+What follows is a description of the approximation of the adjoint flux followed by how they bias each part of the game. This section uses the same notation as the zero variance section. 
+
+\vspace*{1em}
+\noindent \textit{Adjoint Flux}
+
+(flipping order of presentation in attempt to have this make sense to me; I take a few liberties in terms of filling in steps...)
+
+The authors derive an approximate expression for the adjoint flux from an approximate adjoint equation. Each group is treated as a separate, one-group problem. They start with isotropic scattering and neglect the response term (which is an invalid assumption in the lowest energy group in the detector region):
+\begin{equation}
+ -\vOmega \cdot \nabla \psi^{\dagger}_{g} (\vec{r}, \vOmega) + \sigma_{t,g} \psi^{\dagger}_{g} (\vec{r}, \vOmega)
+ = \frac{1}{4\pi} \sigma_{s0, g \rightarrow g}  \psi^{\dagger}_{g} (\vec{r}, \vOmega') d\vOmega' \:.
+ \label{eq:approxAdjTE} 
+\end{equation}
+
+They solve this equation using separation of variables and assuming the spatial component behaves as an exponential. The angular component is specified using a normalization condition (dispersion law) designed to meet angular accuracy objectives:
+\begin{align}
+  \psi^{\dagger}_{g} (\vec{r}, \vOmega) &= f_g(\vOmega) \exp[\vec{\rho}_{g} \cdot (\vec{r} - \vec{r}_n)] \:, \label{eq:decomp}\\
+  %
+  \text{Isotropic: }& \int_{4 \pi} f_g(\vOmega) d\vOmega = 1 \:; \label{eq:fIsoNorm}\\
+  %
+  \text{Linearly anisotropic: }& \int_{4 \pi} f_g(\vOmega) d\vOmega = \underbrace{1 + 3 \mu_{g \rightarrow g} \frac{\sigma_{t,g} - \sigma_{s0,g \rightarrow g}}{|\vec{\rho}_{g}|^2} \vec{\rho}_{g} \cdot \vOmega}_{b_g(\vOmega)}  \:. \label{eq:fAnisoNorm}
+\end{align}
+Note that $\rho$ is a biasing parameter, the selection of which distinguishes this from other exponential transform methods. 
+
+Eqn.~\eqref{eq:decomp} can be put into Eqn.~\eqref{eq:approxAdjTE}, one of the normalization conditions can be applied, and $f_g$ can be obtained:
+\begin{align}
+  (\sigma_{t,g} - \vOmega \cdot \vec{\rho}_{g})f_g(\vOmega) &= \frac{\sigma_{s0, g \rightarrow g}}{4 \pi} \int_{4 \pi} f_g(\vOmega') d\vOmega' \:,\\
+  %
+   \text{Isotropic: } f_g(\vOmega) &= \frac{\frac{1}{4 \pi}\sigma_{s0, g \rightarrow g}}{\sigma_{t,g} - \vOmega \cdot \vec{\rho}_{g}} \:; \label{eq:fIso}\\
+   %
+   \text{Linearly anisotropic: } f_g(\vOmega) &= \frac{\frac{1}{4 \pi}\sigma_{s0, g \rightarrow g} b_g(\vOmega)}{\sigma_{t,g} - \vOmega \cdot \vec{\rho}_{g}} \:.\label{eq:fAniso}
+\end{align}
+
+[liberties taken here in connecting the above equation and the constant that's added.]\\
+The problem is broken up into spatial regions centered at $\vec{r}_n$ with volumes $V_n$ (how this is done is not indicated; I guess like geometry splitting). To make this work out, let's add a constant
+$$\psi^{\dagger}_{g,n} (\vec{r}, \vOmega) \approx A_{g,n} f_{g,n}(\vOmega) \exp[\vec{\rho}_{g,n} \cdot (\vec{r} - \vec{r}_n)]\:.$$
+Next, we'd like to get an expression for $\vec{\rho}_{g,n}$. To do this, consider one dimension at a time, integrate over angle, and solve for $\rho$:
+\begin{align}
+  \psi^{\dagger}_{g,n} (x, \mu) &\approx A_{g,n} f_{g,n}(\mu) \exp[\rho_{x,g,n} (x - x_n)] \:, \\
+  %
+  \text{integrated: } \phi^{\dagger}_{g,n} (x) &\approx B_{g,n} \exp[\rho_{x,g,n} (x - x_n)] \:, \\
+  %
+  \rho_{x,g,n} &= \frac{d}{dx}\ln[\phi^{\dagger}_{g,n} (x)] \:. \label{eq:ln}
+\end{align}
+
+Now, we have expressions for the biasing parameters, $\rho_{*,g,n}$: 
+\begin{align}
+  \rho_{x,g,n} &= \frac{1}{\Delta x_n} \ln \biggl(\frac{\phi^{\dagger}_{g, i + \frac{1}{2}}}{\phi^{\dagger}_{g, i - \frac{1}{2}}} \biggr) \:, \label{eq:paramx}\\
+  %
+  \rho_{y,g,n} &= \frac{1}{\Delta y_n} \ln \biggl(\frac{\phi^{\dagger}_{g, j + \frac{1}{2}}}{\phi^{\dagger}_{g, j - \frac{1}{2}}} \biggr) \:, \label{eq:paramy}\\
+  %
+  \rho_{z,g,n} &= \frac{1}{\Delta z_n} \ln \biggl(\frac{\phi^{\dagger}_{g, k + \frac{1}{2}}}{\phi^{\dagger}_{g, k - \frac{1}{2}}} \biggr) \:. 
+  \label{eq:paramz}
+\end{align}
+
+[some more liberties; I am pretty sure this connection I'm making up is incorrect.]\\
+Now - if we use our expression for $f$, cancel out some $4\pi$s, add a normalization factor, and for some reason multiply by the adjoint scalar flux and the volume, we get the thing that they say they were deriving by starting with Eqn.~\eqref{eq:approxAdjTE}.
+This expressions holds for \underline{linearly anisotropic scattering} for all $|\vOmega| = 1$ and $\vec{r} \in V_n$:
+\begin{align}
+  \psi^{\dagger}_{g,n}(\vec{r}, \vOmega) &\approx \phi^{\dagger}_{g,n} V_n \biggl[ \beta_{g,n} \frac{\sigma_{s0,g \rightarrow g, n} b_{g,n}(\vOmega)}{\sigma_{t,g,n} - \vec{\rho}_{g,n} \cdot \vOmega} \exp[\vec{\rho}_{g,n} \cdot (\vec{r} - \vec{r}_n)]\biggr] \:; 
+  \label{eq:approxPsiAdj}\\
+   %
+  &\nonumber\\
+  %
+  \beta_{g,n} &= \biggl( \biggl[ \int_{V_n} \exp[\vec{\rho}_{g,n} \cdot (\vec{r} - \vec{r}_n)] dr \biggr] \times 
+  \biggl[ \int_{4 \pi} \frac{\sigma_{s0,g \rightarrow g, n} b_{g,n}(\vOmega)}{\sigma_{t,g,n} - \vec{\rho}_{g,n} \cdot \vOmega} d\vOmega \biggr] \biggr)^{-1} \:, 
+  \label{eq:normFact} \\
+   %
+  &\nonumber\\
+  %
+  b_{g,n}(\vOmega) &= 1 + 3 \mu_{g \rightarrow g, n} \frac{\sigma_{t,g,n} - \sigma_{s0,g \rightarrow g, n}}{|\vec{\rho}_{g,n}|^2} \vec{\rho}_{g,n} \cdot \vOmega \:, 
+  \label{eq:linIsoFact} \\
+  %
+  \vec{\rho}_{g,n} &= \sigma_{t,g,n} \vec{\lambda}_{g,n} \:.
+  \label{eq:biasingParam}
+\end{align} 
+$\beta_{g,n}$ is the normalization factor, $b_{g,n}$ is the linearly anisotropic factor, and $\vec{\rho}_{g,n}$ is the biasing parameter. This is similar to the exponential transform, but the innovation is that the biasing parameter is dependent on energy and spatial cell and is obtained from a deterministic adjoint calculation rather than from a dispersion law. 
+
+Note, they talk about $\vec{\lambda}$: (a) it's maximum value is determined by a dispersion law; (b) $|\vec{\lambda}_{g,n}|$ must be less than 1 to make sure $\psi^{\dagger}$ is always positive and finite. They don't specify how this is satisfied.
+
+\vspace*{1em}
+Punchline: the approximate adjoint angular flux is calculated in $V_n$ using Eqns.~\eqref{eq:approxPsiAdj} through \eqref{eq:biasingParam} with biasing parameters calculated using Eqns.~\eqref{eq:paramx} through \eqref{eq:paramz}. The LIFT method is related to the zero-variance method because all of the pdfs they use for sampling (described below) were derived in the zero-variance method. 
+
+
+\vspace*{1em}
+\noindent \textit{Monte Carlo; Source}\\
+To conduct MC, they start with the usual forward TE. They bias the transport of these ``real" particles and alter the weight to transform the biased particles back into real particles. All source particles are born with weight 1. To bias the source's spatial and direction distribution they use Eqn.~\eqref{eq:sampleSource}, where the term in brackets is the pdf for choosing particle position and direction. Then, the particle weight is modified:
+\begin{equation}
+  w_q = \frac{\frac{1}{4 \pi} Q(\vec{r}) \delta_{g,1}}{\frac{1}{4 \pi}\psi^{\dagger}_{g}(\vec{r}, \vOmega) Q(\vec{r}) \delta_{g,1}} 
+  = \frac{R}{\psi^{\dagger}_{g}(\vec{r}, \vOmega)} \:.
+\end{equation} 
+
+
+\vspace*{1em}
+\noindent \textit{Distance to Collision}\\
+For all (not just source) particles, the distance to collision pdf is
+\begin{equation}
+  p(s) = \Sigma_{t,g,n} \exp[-\Sigma_{t,g,n} s] \:,
+\end{equation}
+where the cross section comes from substituting the approximate $\psi^{\dagger}_{g,n}(\vec{r}, \vOmega)$ into Eqn.~\eqref{eq:effectiveSigT} to get $\Sigma_{t,g,n} = \sigma_{t,g,n} - \vOmega \cdot \vec{\rho}_{g,n}$ (assuming xsecs are constant within each cell).
+
+
+\vspace*{1em}
+\noindent \textit{Collision or Escape}\\
+If--based on the distance to collision--a particle escapes a cell, it is moved to the cell boundary and its weight is augmented before a new distance to collision is sampled. Its weight is multiplied by
+\begin{equation}
+  w_{esc} = \frac{\psi^{\dagger}_{gi,n}(\vec{r}_i, \vOmega_i)}{\psi^{\dagger}_{gf,n}(\vec{r}_f, \vOmega_f)} = \exp[\vec{\rho}_{gi,n} \cdot (\vec{r}_i - \vec{r}_f)]\:.
+\end{equation}
+
+If there is a collision, a pdf is sampled for the new angle using $p(\vOmega' \rightarrow \vOmega)$ and the new energy group using $p(g' \rightarrow g)$ from Eqn.~\eqref{eq:scatteringPDFs}. The third term is now re-written and is used to determine the weight change to account for survival, $w_c$, shown in Eqn.~\eqref{eq:wc}. The weight is also adjusted to account for the biasing of the game, $w_{tr}$. Thus, $w_{adj} = w_c w_{tr}$. 
+\begin{align}
+  w_c &= \frac{\frac{1}{4 \pi}\sum_{g''=1}^{G} \int_{4 \pi} \Sigma_{s, g' \rightarrow g''}(\vec{r}, \vOmega' \rightarrow \vOmega'') d\vOmega''}{\Sigma_{t,g'}(\vec{r}, \vOmega')} \:, \label{eq:wc}\\
+   %
+  w_{tr} &= \frac{\psi^{\dagger}_{g',n}(\vec{r}_i, \vOmega')}{\psi^{\dagger}_{g,n}(\vec{r}, \vOmega)} \:.
+\end{align}
+
+The authors note, however, that all of the expressions needed for this sampling and weight change are complicated to evaluate because of the required computation of $b_{g,n}(\vOmega)$, and the cost of evaluation might be inordinate. To deal with this, the authors propose simplification. 
+\begin{enumerate}
+  \item Instead of using linearly anisotropic scattering, they say we could try isotropic scattering. To do this set $b_{g,n}(\vOmega) = 1$. 
+  \item Or (or and? I can't tell) adjust $f(\vOmega)$ to simulate linearly anisotropic scattering:
+  \begin{equation}
+  f_g(\vOmega) = \underbrace{\frac{\frac{1}{4 \pi}\sigma_{s0, g \rightarrow g} \biggl[1 + 3 \mu_{g \rightarrow g} \frac{\sigma_{t,g} - \sigma_{s0,g \rightarrow g}}{|\vec{\rho}_{g}|^2} \vec{\rho}_{g} \cdot \vOmega \biggr]}{\sigma_{t,g} - \vOmega \cdot \vec{\rho}_{g}}}_{\text{linearly anisotropic}}
+   \approx \underbrace{\frac{\frac{1}{4 \pi}\sigma_{s0, g \rightarrow g}}{\sigma_{t,g} - \vOmega \cdot L_g\vec{\rho}_{g}}}_{\text{adjusted isotropic}} \:.
+  \end{equation}
+  $L_g$ is the factor to make the adjusted isotropic form look like the linearly ansiotropic form. This is then called ``simplified linearly anisotropic biasing".
+\end{enumerate}
+(What I don't get is the relationship between \#1 and \#2. This is similar to my lack of understanding of the two separate forms of deriving $\psi^{\dagger}$.)
+
+Next, they embark on determining $L_g$. They choose a coordinate system in which $\vec{\rho}/|\vec{\rho}| = \vec{i}$ and the two functions must be equal at $\mu=1$, most accurately capturing forward scattering. This gives
+\begin{align}
+  \frac{1 + 3 \mu_{g \rightarrow g}\frac{\sigma_{t,g} - \sigma_{s0,g \rightarrow g}}{|\vec{\rho}_{g}|}}{\sigma_{t,g} - |\vec{\rho}_{g}|} 
+&= \frac{1}{\sigma_{t,g} - L_g|\vec{\rho}_{g}|} \:, \\
+   %
+   \nonumber \\
+   %
+   L_g &= \frac{|\vec{\rho}_{g}| + 3 \mu_{g \rightarrow g} \bigl( \frac{\sigma_{t,g} - \sigma_{s0,g \rightarrow g}}{|\vec{\rho}_{g}|}\bigr)\sigma_{t,g}}{|\vec{\rho}_{g}| + 3 \mu_{g \rightarrow g}(\sigma_{t,g} - \sigma_{s0,g \rightarrow g})} \:.
+\end{align} 
+To make sure that $L_g$ never reduces the amount of biasing, they set $|\vec{\rho}_{g}| = \vec{\sigma}_{t,g} |\lambda_{g}| = \sigma_{t,g}|\lambda_{0,g}|$ [why is the first $\sigma$ a vector??], where $|\lambda_{0,g}|$ is the eigenvalue of Eqn.~\eqref{eq:fIso} (the isotropic $f_g$ definition), and $|\lambda_{0,g}| \leq 1$ [where did this come from? They hadn't talked about this kind of thing before...].
+\begin{equation}
+  L_g = \frac{|\vec{\rho}_{g}| + 3 \mu_{g \rightarrow g}(\sigma_{t,g} - \sigma_{s0,g \rightarrow g})(1/|\lambda_{0,g}|)}{|\vec{\rho}_{g}| + 3 \mu_{g \rightarrow g}(\sigma_{t,g} - \sigma_{s0,g \rightarrow g})} \:.
+\end{equation} 
+(Note, $L_g = 1$ is, \textit{I think}, the same as $b_g = 1$.) They had the best results using this last definition of $L_g$. 
+
+\vspace*{1em}
+\noindent ** I think there is some missing information about the relationship between Eqn.~\eqref{eq:approxPsiAdj} and Eqn.~\eqref{eq:decomp}. They talk about them as being related (Eqn.~\eqref{eq:approxPsiAdj} being derived from Eqn.~\eqref{eq:decomp}) but also as being separate (simply setting $b_{g,n}(\vOmega)$ to $1$ and separately changing the $f(\vOmega)$ to change how scattering is handled). The connection is not clear. There is also insufficient information about this eigenvalue thing. I suspect that full understanding can only be gleaned from Turner's disseration. **
+\vspace*{1em}
+
+After reading Ref.~\cite{Turner1997b} it is becoming clear that the two versions of the angular flux are different. One is used in LIFT and the other is used to set limits on parameters. They don't seem to be related to one another for some reason. The deterministic solution doesn't always give values for $|\vec{\rho}_{g,n}|$ that are less than the total cross section (which is then invalid). That's when you need the dispersion law thing to get the eigenvalue. The eigenvalue (which they call the deep-penetration eigenvalue) can be adjusted with a weighting factor
+\begin{equation}
+  |\lambda_{g,n}|_{\max} = f4 + (1-f4)|\lambda_{0,g}|\:.
+\end{equation}
+They used trial-and-error to determine $f4$, but note that it's usually about 0.5 and the solution isn't terribly sensitive to it. With $f4=1$, the max biasing value is set by $\vec{\rho}_{g,n} = \sigma_{t,g,n}$ and with $f4=0$ it is $\vec{\rho}_{g,n} = \sigma_{t,g,n} \vec{\lambda}_{g,n}$. 
+
+%The Tortilla paper (see below; Ref.~\cite{Somasundaram2013}) notes that the expressions for $f_g$ seen in Eqns.~\eqref{eq:fIso} or \eqref{eq:fAniso} can be substituted into Eqn.~\eqref{eq:fIsoNorm} to get the eigenvalue for the purpose of limiting the max value of the magnitude of the biasing parameter to ensure effective xsecs are positive and finite. This reference is a little bit crappy, but maybe this is at least close to right. Still doesn't totally make sense to me. 
+
+\vspace*{1em}
+\noindent \textit{Weight Windows}
+
+They would like to use $ww_{cen,g,n} = \psi^{\dagger}_{g,src} / \psi^{\dagger}_{g,n}$, but decided that's too expensive. Instead, they use
+\begin{equation}
+  ww_{cen,g,n} = \phi^{\dagger}_{g,src} / \phi^{\dagger}_{g,n} \:.
+\end{equation}
+All wws and then calculated before any MC histories are started. 
+
+They note that particles should not travel more than $\sim$1 mfp without checking its weight. Further, as $c \rightarrow 1$, the advantage of LIFT over survival biasing goes to zero. 
+
+
+\vspace*{1em}
+\noindent \textbf{Results}\\
+The measure of success was relative FOM rather than usual FOM:
+\begin{align}
+  \text{FOM} &= \frac{1}{\epsilon^2 T}\:, \\
+  \epsilon &= \frac{\sqrt{variance}}{answer} \:.
+\end{align}
+Note that $T$ only includes MC time. 
+\\
+
+\noindent \textit{One-Group Homogeneous}\\
+The scattering is linearly anisotropic ($\bar{\mu} = 0.2$), and the scattering ratios are 0.9, 0.7, 0.5, and 0.3. There is a uniform, isotropic, cube source and flux is tallied at with a track length flux detector on the other side of the cube. Eight combinations of solvers and VR were used, and problem mesh depended on solution method. 
+
+LIFT performance varied the least with $c$, and it (comparatively) becomes more valuable with higher absorption (note that biasing increases as $c$ decreases). However, the default parameters didn't work well, so trial-and-error runs were needed to get useful parameters.
+
+The cost of using exponential discontinuous (ED) method is too high. Using $SP_N$ did very well given that it is so inexpensive, probably because it avoids the ray effects of $S_N$. Diffusion did okay. 
+
+The optimal value of $f4$ decreases as scattering ratio increases. The effect of angular dependence of weight windows is higher in AVATAR than LIFT (angle-dependent AVATAR was better than angle independent); and AVATAR relies more heavily on splitting and rouletting while LIFT relies more on direct weight control. The combo of LIFT with AVATAR wws worked the best overall, but choosing good parameters is not straightforward, and method performance depends a lot of that. 
+
+\vspace*{1em}
+\noindent \textit{One-Group Heterogeneous}\\
+Same as the homogeneous problem, but now there are two problems with a low-density, three-bend duct and one problem with a highly absorbing region between the source and the detector. Both duct problems have $\Sigma_t = 1$ cm$^{-1}$, everywhere but the duct. In the first, the duct has $\Sigma_t = 0.1$ cm$^{-1}$ and the second $\Sigma_t = 0.01$ cm$^{-1}$. The scattering ratio is the same in all parts of the problem. The absorbing problem has the same total cross section everywhere, but $c=0.9$ most places and $0.3$ in the absorber. 
+
+LIFT and AVATAR don't do as well in the duct problems b/c deterministic methods don't handle ducts well; ``approximations of the adjoint solution are not good enough to cause accurate biasing of trajectories through narrow ducts." Survival biasing only did better than the homogeneous problem since there were fewer particle scatters to track. Again, LIFT was the most useful. However, none of the methods were that fantastic of an improvement over survival biasing only, while they were for all of the other problems.
+
+All methods had a hard time with the absorber, and LIFT was the best overall. 
+
+\vspace*{1em}
+\noindent \textit{Multigroup Homogeneous}\\
+Similar to the first few, but now $\bar{\mu}$ depends on material, energy group, and whether scattering is within group or out of group (some fudging to keep things positive). MCNP data collapsed into five groups, values increased to fake higher optical thickness. Source was in group 1, detector in group 5. They used water, concrete, and carbon. 
+
+Water was the hardest b/c of the cross sections: hard for deterministic. The ratio of the largest to smallest cross section is large, making it hard to have either have a mesh small enough to make cells 1 mfp thick for the largest x-sec or the problem large enough so the smallest x-sec particles don't just leak. The high scattering ratio also decreases the LIFT biasing in group 5. 
+
+Carbon and concrete differ b/c of scattering ratio, but no extreme problems b/c of deterministic. [note: high $c$ = problems with small LIFT biasing; low $c$ = problem with deterministic solution]. 
+
+Everything performed about equally except ED in water (bad). $f4$ values were similar to single group except water, where LIFT was more sensitive to overbiasing. LIFT was better than AVATAR, and the improvement from lift was more for water than the other two materials.  
+
+\vspace*{1em}
+\noindent \textit{Multigroup Heterogeneous}\\
+Same as one group with a duct, but with concrete as the material. Again, the duct meant that methods better in angle were better; LIFT beat AVATAR. 
+
+\vspace*{1em}
+\noindent \textit{Summary/Conclusions}\\
+Overall the $S_N$-based LIFT method was the most consistent and the most useful for black-box application. LIFT is least beneficial with high scatter and most with high absorption. It is not necessarily the case that the most accurate deterministic calculation caused the greatest efficiency. Ways that LIFT might be improved:
+\begin{itemize}
+\item Higher angular moments of the adjoint solution might enable the adjoint solution to be expressed more faithfully.
+\item Using techniques to mitigate ray effects might help.
+\item Self-learning MC techniques might be helpful as well.
+\end{itemize}
+NOTE: This needs to be extended to continuous energy and arbitrary anisotropic scattering. 
+
+
+%----------------------------------------------
+\vspace*{3em}
+\begin{center}
+\underline{\textbf{Cooper and Larsen}} \cite{Cooper2001}
+\end{center}
+
+This method is for global responses.
+
+``...we show that if the number of Monte Carlo particles is uniformly distributed throughout the system, the relative variance in the scalar flux, rather than rising rapidly as one proceeds away from source regions, is relatively flat." 
+
+``This will prevent regions far from sources from being under-populated and regions close to sources from being over-populated with Monte Carlo particles."
+
+``If the center of the weight window in each cell is chosen to be proportional to the density of the physical particles in the cell, then the density of Monte Carlo particles throughout the system is approximately constant." (eqns.\ on pg.\ 4)
+
+They use diffusion to make their forward importance map to avoid difficulties associated with $S_N$ and $P_N$. They use the quasi-diffusion method (refs.\ 10-12 of that paper). MC can be used to get the Eddington factor estimates. They find the updated quasi-diffusion is more accurate than diffusion. 
+
+\vspace*{1em}
+\noindent \textit{Scalar ww centers}
+\begin{equation}
+  ww(\vec{r}) = \frac{\phi(\vec{r})}{\max(\phi(\vec{r}))}
+\end{equation}
+
+\noindent \textit{Angular-dependent ww centers}
+
+\noindent Starts with a flux form based on the AVATAR method
+\begin{equation}
+  \psi(\vec{r}, \vOmega) \approx A(\vec{r}) \exp\bigl[ \vec{B}(\vec{r}) \cdot \vOmega \bigr]
+  \label{eq:avatar}
+\end{equation}
+If $|\vec{B}|$ is small, the flux is $\sim$linear in angle $\rightarrow$ $P_1$ theory.\\
+If $|\vec{B}|$ is large, the flux is $\sim$Gaussian in angle $\rightarrow$ Fermi-Eyges theory, which accurately describes the evolution of a nearly monodirectional beam of radiation. 
+
+The goal is to have $A$ and $B$ used in Eqn.~\eqref{eq:avatar} to preserve the best-estimate scalar flux and current. To do this, they integrate equations for each over angle, make a simplification to facilitate integration, and end up with the following process:
+\begin{enumerate}
+  \item Define and calculate $\vec{\lambda}(\vec{r}) \equiv \frac{\vec{J}(\vec{r})}{\phi(\vec{r})}$, where $\vec{J}(\vec{r})$ and $\phi(\vec{r})$ are from a diffusion calculation (or quasi-diffusion in this case), or from Monte Carlo. 
+  \item Use $\lambda(\vec{r}) = |\vec{\lambda}(\vec{r})|$ to get $B(\vec{r})$
+  \item Use $B(\vec{r})$, $\lambda(\vec{r})$, and $\vec{\lambda}(\vec{r})$ to get $\vec{B}(\vec{r})$
+  \item Use $B(\vec{r})$ and $\phi(\vec{r})$ to get $A(\vec{r})$
+  \item Finally, use $A$ and $\vec{B}$ in Eqn.~\eqref{eq:avatar} to compute the weight window center as
+  \begin{equation}
+    ww_{i,j}(\vOmega) = \frac{\psi_{i,j}(\vOmega)}{\max_{i',j'}(\phi(\vec{r})) \:/\: 4 \pi} \:.
+  \end{equation}
+\end{enumerate}
+
+The authors do not recommend using angular weight windows in regions with significant streaming (when particles have a preferred direction). Because the weight windows are targeting a uniform distribution in angle, a large amount of splitting in the nonstreaming regions would happen to equally populate all of angular space. 
+
+To see what's happening numerically, consider the definition of $\lambda$, which sets the value of $B$. With strong anisotropy, $\lambda \rightarrow 1$ (in the isotropic case, $\lambda=0$), and then $B$ becomes large. And, since $\vec{B}$ points in the same direction as the current, particles with other angles will encounter very low weight windows and will be subject to excessive splitting. 
+
+To mitigate this, the authors artificially limited the value of $\lambda$ for problems with strong anisotropies. This ruins the preservation of current.  
+
+In this implementation they
+\begin{enumerate}
+  \item solve the quasi-diffusion equations to make initial weight windows
+  \item start MC and calculate new Eddington factors
+  \item re-solve the quasi-diffusion  equation and update the wws
+  \item more MC, repeat as needed.
+\end{enumerate}
+Note: they didn't use MC to calculate $\lambda$ directly, but did use it for the Eddington factors. 
+
+Other suggestions they make:
+\begin{itemize}
+  \item Have an adaptive ww bound factor (they use a fixed value of 4.0) that reduces as the wws become more accurate.
+  \item Manually increase the ww centers in subregions of the problem that are deemed less important (e.g.\ multiply by 2) so that fewer MC particles will go there. This will result in savings if this isn't negated by increase in variance in important parts of the problem.
+  \item Can also increase ww centers in energy groups that aren't important.
+  \item Finally, they say $S_N$ or $P_N$ should work as longs as there aren't problems with ray effects. 
+\end{itemize}
+
+
+%----------------------------------------------
+\vspace*{3em}
+\begin{center}
+\underline{\textbf{Sweezy et al.}} \cite{Sweezy2005}
+\end{center}
+
+This group implemented deterministic adjoint weight window generator (DAWWG) in MCNP. The idea is the replace the WWG because it's too slow and hard to use.
+
+PARTISN is used to create the adjoint scalar flux or currents. The adjoint source is created using Wagner's method [ADVANTG in 2002, which does CADIS/FW-CADIS I think], and the weight windows are the normalized inverse of the adjoint fluence (with an upper limit on the values). Source energy biasing can also be used. Angular weight windows are created using the AVATAR method. You can also plot the wws in MCNP. 
+
+Overall DAWGG was better, but for a 3-leg duct problem (strong anisotropies) WWG was better b/c the discrete angular nature of PARTISN can't handle this well. 
+
+%----------------------------------------------
+\vspace*{3em}
+\begin{center}
+\underline{\textbf{Simple Angular CADIS}} \cite{Peplow2012a}
+\end{center}
+ORNL developed a directional method that is effectively an extension of AVATAR. They noted that since $f$ is a function of $\mu$ only, it can be separated into polar and azimuthal components, and thus the angular flux can be expressed this way:
+\begin{align}
+  \psi^{\dagger}(\vOmega \cdot \hat{n}) &\approx \phi^{\dagger} \frac{1}{2\pi} f(\vOmega \cdot \hat{n})\:, \qquad \text{with} \\
+  %
+  &\int \phi^{\dagger} \frac{1}{2\pi} f(\vOmega \cdot \hat{n}) d\vOmega =  \phi^{\dagger} \:.
+\end{align}
+In this case, the weight window centers become
+\begin{equation}
+  \boxed{ww = \frac{2 \pi \:k}{\phi^{\dagger}f(\vOmega \cdot \hat{n})}} \:,
+\end{equation}
+where $k$ is a constant of proportionality that can be adjusted to make the importance map consistent with the biased source. This is the same as the AVATAR ww values except that there is now a $2 \pi$ in the numerator. Denovo was modified to write adjoint net currents for use in the method.
+
+When considering the source, it was noted that for many real problems the directional dependence is azimuthally symmetric about some reference direction, $\hat{d}$. The angular distribution of a source, $q_i(\vOmega)$, can be expressed as the product of the uniform azimuthal distribution and a polar distribution about reference direction $\hat{d}_i$, giving $\frac{1}{2\pi}q_i (\vOmega \cdot \hat{d}_i)$. The geometric size of these sources tends to be small, allowing each source distribution to be expressed as the product of two separable distributions: $q_i(\vec{r},E,\vOmega) = q_i (\vec{r},E)  q_i (\vOmega)$. Two methods were implemented, one that used a directionally-biased source and one that did not. 
+
+\vspace*{1em}
+\noindent \textit{\textbf{Without} Directional Source Biasing}\\
+Make the biased source proportional to the true source and the space/energy component of the angular flux:
+\begin{align}
+  \hat{q}(\vec{r}, E, \vOmega) &= \frac{1}{R} \bigl[\hat{q} (\vec{r}, E) \frac{1}{2 \pi} q(\vOmega \cdot \hat{d})\bigr]\phi^{\dagger}(\vec{r}, E)\:, \\
+  %
+  R &= \int \int \int \hat{q} (\vec{r}, E) \frac{1}{2 \pi} q(\vOmega \cdot \hat{d})\phi^{\dagger}(\vec{r}, E) d\vOmega dE d\vec{r} \:,\\
+  &= \int \int \hat{q} (\vec{r}, E) \frac{1}{2 \pi} q(\vOmega \cdot \hat{d})\phi^{\dagger}(\vec{r}, E) dE d\vec{r} \int \frac{1}{2 \pi} q(\vOmega \cdot \hat{d}) d\vOmega \:.
+\end{align}
+The second integral is equal to 1, and the $R$ is then the same as the normal space/energy CADIS. The biased source and initial weights are then
+\begin{align}
+  \hat{q}(\vec{r}, E, \vOmega) &= \hat{q} (\vec{r}, E) \frac{1}{2 \pi} q(\vOmega \cdot \hat{d})\:; \\
+  ww_0 &\equiv \frac{q(\vec{r}, E, \vOmega)}{\hat{q}(\vec{r}, E, \vOmega)} = \frac{R}{\phi^{\dagger}(\vec{r}, E)} \:.
+\end{align}
+
+The $k$ can now be determined to make the weight window targets match the birth weight, \emph{except} that it will only match for one point in phase space, $(\vec{r}_0, E_0, \vOmega_0)$ (so choose it wisely!). 
+\begin{align}
+  \frac{2\pi \:k}{\phi^{\dagger}(\vec{r}_0, E_0) f(\vOmega_0 \cdot \hat{n}_0)} &= \frac{R}{\phi^{\dagger}(\vec{r}_0, E_0)} \:, \\
+  k &= \frac{R}{2\pi}f(\vOmega_0 \cdot \hat{n}_0) \:.
+\end{align}
+
+In summary
+\begin{align}
+  \hat{q}(\vec{r}, E, \vOmega) &= \hat{q} (\vec{r}, E) \frac{1}{2 \pi} q(\vOmega \cdot \hat{d}) \:; \\
+  ww(\vec{r}, E, \vOmega) &= \underbrace{\frac{R}{\phi^{\dagger}(\vec{r}, E)}}_{ww(\vec{r},E)} \frac{f(\vOmega_0 \cdot \hat{n}_0)}{f(\vOmega \cdot \hat{n})} \:.
+\end{align}
+
+\vspace*{1em}
+\noindent \textit{\textbf{With} Directional Source Biasing}\\
+For this method, they proposed that the biased source be proportional to both the true source distribution and the approximation of the adjoint angular flux. With a small geometric source, they assumed that there is one vector, $\hat{n}_0 = \hat{n}(\vec{r}_0, E_0)$, evaluated at a specific location and energy, that represents the adjoint current direction over that source (similar to the previous source). Thus:
+\begin{align}
+  \hat{q}(\vec{r}, E, \vOmega) &= \frac{1}{Rc} q(\vec{r}, E, \vOmega)\psi^{\dagger}\:, \\
+   &= \frac{1}{Rc} \bigl[q(\vec{r}, E) \frac{1}{2 \pi} q(\vOmega \cdot \hat{d})\bigr] \bigl[\phi^{\dagger}(\vec{r}, E)\frac{1}{2 \pi} f(\vOmega \cdot \hat{n}_0)\bigr]  \:.
+\end{align}
+The space/energy and angular components can be separated, and each distribution should be independent:
+\begin{align}
+  \hat{q}(\vec{r}, E, \vOmega) &= \bigl[\frac{1}{R} q(\vec{r}, E) \phi^{\dagger}(\vec{r}, E)\bigr] \bigl[\frac{1}{c}\frac{1}{2 \pi} q(\vOmega \cdot \hat{d})\frac{1}{2 \pi} f(\vOmega \cdot \hat{n}_0)\bigr] \:,  \\
+ \text{thus} \: \: c &= \int \frac{1}{2 \pi} q(\vOmega \cdot \hat{d})\frac{1}{2 \pi} f(\vOmega \cdot \hat{n}_0) d\vOmega \:.
+\end{align}
+
+To get the weight window targets to match, $k = Rc$, and this gives:
+\begin{align}
+  \hat{q}(\vec{r}, E, \vOmega) &= \hat{q} (\vec{r}, E) \frac{1}{c}\frac{1}{2 \pi} q(\vOmega \cdot \hat{d})\frac{1}{2 \pi} f(\vOmega \cdot \hat{n}_0) \:; \\
+  ww(\vec{r}, E, \vOmega) &= \underbrace{\frac{R}{\phi^{\dagger}(\vec{r}, E)}}_{ww(\vec{r},E)} \frac{2 \pi \:c}{f(\vOmega \cdot \hat{n}_0)} \:.
+\end{align}
+
+\vspace*{1em}
+\noindent \textit{Results}\\
+They found that this worked, but not all the time and not well enough. See the reference for detailed results. (The spherical boat problem is a good example of an easy way to fix beam-in-air problems). 
+
+Note: a big challenge is picking the $x_0$ values.
+
+
+
+%----------------------------------------------
+\vspace*{3em}
+\begin{center}
+\underline{\textbf{LIFT and CADIS in Tortilla}} \cite{Somasundaram2013}
+\end{center}
+This group implemented CADIS to make weight windows (WW) and conduct source biasing (SB) and LIFT to perform modified exponential transform. This is implemented in a multi-group Monte Carlo code called Tortilla (developed at Oregon State). Atilla is used as the deterministic solver--thus the LIFT method had to be modified to work on a tetrahedral mesh. Cross sections are made with MrMixer from LANL. The Atilla mesh is also used for the MC calculations. 
+
+They solved three test problems with Atilla, Tortilla, Tortilla with SB and WW from CADIS, Tortilla with LIFT, and Tortilla with WW from CADIS + LIFT. They report relative error, timing, and FOM (they don't actually indicate if the answers are right). Each test problem is a homogeneous, 15 $\times$ 15 $\times$ 15 cm, concrete cube with a source (group 1 out of 5 groups, isotropic) and a detector. What changes is the scattering ratio in the cube. 
+
+\begin{itemize}
+  \item c = 0.99, LIFT + WW worked the best and LIFT $>$ SB + WW (this is different from expectation given the LIFT paper discussion~\cite{Turner1997a}),
+  \item c = 0.7, LIFT + WW $>$ SB + WW $>$ LIFT,
+  \item c = 0.5, LIFT + WW $>$ SB + WW $>$ LIFT.
+\end{itemize} 
+There weren't any test problems with strong anisotropies.
+
+
+
+%----------------------------------------------
+\vspace*{3em}
+\begin{center}
+\underline{\textbf{Resonance Factor Method}} \cite{Wilson2014}
+\end{center}
+
+This method works to reduce the variance in locations of combined space and energy self-shielding by compensating for the errors in the multi-group cross sections that are associated with strong resonances.  
+
+
+This work determined empirically that applying a correction, which they call a Resonance Factor, to the adjoint source specified in the FW-CADIS method, referred to as $q^{\dagger}_{FWC}$, reduces the relative error in the slow-converging areas. 
+%
+\begin{equation}
+   q^{\dagger}(\ve{r},E) = \bigl(\frac{\phi_{res(\sigma_0)}(\ve{r},E)}{\phi_{dilute(\sigma_0)}(\ve{r},E)}\bigr)^M q^{\dagger}_{FWC} \:,
+   \label{eq:newQ}
+\end{equation}
+%
+where
+\begin{itemize}
+  \item $M$ is a is a problem-dependent constant typically between 0 and 3;
+  \item $\phi_{res(\sigma_0)}(\ve{r},E)$ is the deterministic forward flux calculated with a small background cross section in the resonance material, causing the resonances to have a larger impact; and
+  \item $\phi_{dilute(\sigma_0)}(\ve{r},E)$ is the deterministic forward flux calculated with a large background cross section in the resonance material, reducing the impact of resonances. 
+\end{itemize}
+
+The importance map is created as before, ($imp(\ve{r},E)= \phi^{\dagger} (\ve{r},E)/R(\ve{r},E)$), but now $\phi^{\dagger}$ is $\phi_{ResFac}^{\dagger}$ because it was created with the adjusted adjoint source. Equation~\eqref{eq:newQ} results in an adjoint flux that is influenced by the relative importance of the resonance flux compared to the dilute flux. The degree of influence is governed by the magnitude of M. The paper presents a study of $M$ for the geometry tested in this work.
+
+To implement the Resonance Factor method, use $\phi_{res(\sigma_0)}(\ve{r},E)$  in all locations where $\phi$ would be used in the FW-CADIS method. Using a small $\sigma_0$ value to generate MG cross sections yields fluxes closer to fluxes created using a best estimate $\sigma_0$ ($\phi_{best(\sigma_0)}(\ve{r},E)$) than fluxes calculated with a large $\sigma_0$. A more accurate way to implement this new method would be to use $\phi_{best(\sigma_0)}(\ve{r},E)$ in all locations where $\phi$ is used in the FW-CADIS method, but the improvement was not found to be worth the additional cost and complication of computing a third set of cross sections and doing a third forward deterministic calculation.
+
+To illustrate how the correction is applied, consider the example of trying to optimize the space and energy dependent flux. In this case, $q^{\dagger}_{FWC} = 1 / \phi$ and results in this corrected response: 
+%
+\begin{align}
+ R &= \int_E \int_{V} \bigl(\frac{\phi_{res(\sigma_0)}(\ve{r},E)}{\phi_{dilute(\sigma_0)}(\ve{r},E)}\bigr)^M \frac{1}{\phi_{res(\sigma_0)}(\ve{r}, E)} \phi_{res(\sigma_0)}(\ve{r}, E) dV dE \:,
+ \label{eq:newResponse} \\
+   &\approx \int_E \int_{V} \bigl(\frac{\phi_{res(\sigma_0)}(\ve{r},E)}{\phi_{dilute(\sigma_0)}(\ve{r},E)}\bigr)^M dV dE \:. \nonumber
+\end{align}
+%
+The expanded version of importance map in the plate then becomes:
+%
+\begin{equation}
+ imp(\ve{r},E)= \frac{\phi_{res(\sigma_0)}^{\dagger}(\ve{r},E)}{\int_E \int_{V} \bigl(\frac{\phi_{res(\sigma_0)}(\ve{r},E)}{\phi_{dilute(\sigma_0)}(\ve{r},E)}\bigr)^M dV dE} \:.
+  \label{eq:newImp}
+\end{equation}
+
+This method worked very well for the test problem of a long iron plate embedded in water. There is, however, still higher variance than in the rest of the problem and this might be associated with angle dependence. This method is also somewhat burdensome to use and requires significant user expertise. 
+
+
+%----------------------------------------------
+\vspace*{3em}
+\begin{center}
+\underline{\textbf{Slaybaugh/ORNL proposal}} \cite{Slaybaugh2014}
+\end{center}
+
+A forward deterministic calculation would be performed to get an approximation of the forward particle angular flux, $\psi(\vec{r},E,\vOmega)$, in the problem.  An adjoint calculation would also be performed to determine the adjoint angular flux,$\psi^{\dagger}(\vec{r},E,\vOmega)$.  Then, the adjoint scalar fluxes would be computed using the forward angular flux as a weighting function to account for the direction in which the particles at any given location/energy will actually be traveling.
+\begin{equation}
+  \phi^{\dagger}(\vec{r},E) = \frac{\int \psi(\vec{r},E,\vOmega) \psi^{\dagger}(\vec{r},E,\vOmega) d\vOmega}{\int \psi(\vec{r},E,\vOmega) d\vOmega} \:.
+\end{equation}
+
+The importance map (just space and energy) would then be determined in a manner similar to the current implementation of hybrid methods.  Using this approach, the importance values better reflect the particles that will be transported in the final Monte Carlo calculation.  A more accurate importance map will yield faster Monte Carlo run times.
+
+
+%----------------------------------------------
+\vspace*{3em}
+\begin{center}
+\underline{\textbf{Lagrange Discrete Ordinates}} \cite{Ahrens2014}
+\end{center}
+
+This paper is so good you should just read it. 
+
+Basically, they re-derive the discrete ordinates equations, but use a different way of thinking about the quadrature interpolation framework and thus the basis set. They show that there exists a subspace that has at least three different basis sets [as long as the number of directions is identical to the dimension of the subspace (the failing of level symmetric)]: spherical harmonics, reproducing kernel functions, and Lagrange functions. They also show how to transform between these basis sets. 
+
+Notes:
+\begin{itemize}
+\item The subspace is $\mathcal{H}_L = \text{span}\{ Y_l^m : |m| \leq l, 0 \leq l \leq L \}$; $d_L = $ dim$(\mathcal{H}_L) = (1 + L)^2$.
+%
+\item A fundamental system of points (directions) on the unit sphere for $\mathcal{H}_L$, $\{\vOmega_i\}_{i=1}^{d_L}$, gives functional evaluations, $f \rightarrow f(\vOmega_i), \: i = 1, 2, \dots, d_L, \: f\in \mathcal{H}_L$, that are linearly independent. This is equivalent to requiring the interpolation matrix made of spherical harmonics to be non-singular.
+%
+\item They use an ``extremal" system of points that lead to well-conditioned matrices and have no symmetry conditions.
+%
+\item With a fundamental system of points, Lagrange functions can be defined such that
+$$ L_i(\vOmega_j) = \delta_{ij}, \: i,j = 1, 2, \dots, d_L\:,$$
+and these functions, $\{L_i\}_{i=1}^{d_L}$, for a basis for $\mathcal{H}_L$.
+%
+\item The matrix elements $\left\langle L_i, L_j \right\rangle$ can be computed accurately (no issues with matrix conditioning).
+%
+\item A quadrature on $\mathcal{H}_L$ is defined by
+$$\int_{4 \pi} f(\vOmega) d\vOmega = \sum_{i=1}^{d_L} \int_{4 \pi} L_i(\vOmega) d\vOmega f(\vOmega_i) = \sum_{i=1}^{d_L} w_i f(\vOmega_i)\:,$$
+where $w_i = \sum_{j=1}^{d_L} \left\langle L_i, L_j \right\rangle$.
+%
+\item The reproducing kernel functions can be calculated using a 3-term recursion relation, providing an easy way to calculate the Lagrange functions. 
+\end{itemize}
+
+\vspace{1 em}
+\noindent They then derive the new set of equations using a collocation method. Define 
+
+\begin{align}
+\psi_L(\vec{r}, E, \vOmega) &= \sum_{i=1}^{d_L} \psi_i(\vec{r}, E) L_i(\vOmega) \:, \label{eq:newPsi}\\
+\phi_L(\vec{r}, E, \vOmega) &= \int_{4 \pi} \psi_L(\vec{r}, E, \vOmega) d\vOmega = \sum_{i=1}^{d_L} w_i \psi_i(\vec{r}, E) \:, \label{eq:newPhi}
+\end{align}
+where $ \psi_i(\vec{r}, E)$ are determined through collocation.
+
+The resulting equations with a multi-group approximation added in are
+\begin{align}
+\vOmega \cdot \nabla \psi_i^g(\vec{r}) &+ \Sigma_t^g(\vec{r})\psi_i^g(\vec{r}) = 
+\sum_{g'=1}^G \sum_{j=1}^{d_L} \sum_{i'=1}^{d_L} \Sigma_{s,L}^{g' \rightarrow g}(\vec{r}, \vOmega_i \cdot \vOmega_j) \left\langle L_i, L_j \right\rangle \psi_{i'}^{g'}(\vec{r}) \nonumber \\
+&+ S^g(\vec{r}, \vOmega_i) \:, \: i = 1, 2, \dots, d_L \:, \: g = 1, 2, \dots, G \:. \\
+%
+\nonumber \\
+%
+\psi_i^g(\vec{r}) &= \Gamma^g(\vec{r}, \vOmega_i) \:, \: \vec{r} \in \partial D \:, \: \vOmega_i \cdot \hat{\vec{n}} < 0 \:.
+\end{align}
+These are like the usual $S_N$ equations, except that the scattering source is calculated differently and the angular flux is represented by Eqn.~\eqref{eq:newPsi}. 
+
+The eigenfunctions of the continuous scattering operator, $\mathcal{K} \psi(\vOmega) \equiv \int_{4\pi} \Sigma_s(\vOmega \cdot \vOmega')\psi(\vOmega') d\vOmega'$, are the spherical harmonics, $Y_l^m$, with associated eigenvalue $\lambda_l=\sigma_s^l$:
+\begin{equation}
+\mathcal{K} Y_l^m (\vOmega) = \int_{4\pi} \Sigma_s(\vOmega \cdot \vOmega')Y_l^m(\vOmega') d\vOmega' = \sigma_s^l Y_l^m \:.
+\end{equation}
+For a given $l$, the eigenvalue has geometric multiplicity of $2l+1$. 
+
+The discrete scattering operator, $\tilde{\mathcal{K}} \psi_L(\vOmega) = \sum_{i=1}^{d_L} \psi_i \sum_{j=1}^{d_L}  \left\langle L_i, L_j \right\rangle \Sigma_s^L(\vOmega \cdot \vOmega_j)$, preserves the first $L$ eigenvalues of the continuous scattering operator. It also correctly captures ``delta function" scattering. These have important consequences for highly anisotropic transport problems. 
+
+\vspace{1 em}
+\noindent Other perks:
+\begin{itemize}
+\item The scattering source only requires the angular flux, not spherical harmonic moments (saves memory and message passing).
+\item There is a functional representation of the solution in angle, so it can be evaluated at directions besides the quadrature points.
+\item There are positive weights for up to $L=165$: 27,556 directions.
+\item One can use a change of basis formula to filter the solution in a manner similar to what people do with $P_N$. 
+\end{itemize}
+
+Big drawback: this formulation only has spectral convergence if the TE solution is smooth in angle. One can use interpolatory frameworks with non-smooth functions instead; but this hasn't been done yet. 
+
+
+%----------------------------------------------
+\vspace*{3em}
+\begin{center}
+\underline{\textbf{Wrap Up}}
+\end{center}
+
+\noindent Some trends that have been mentioned in many of these methods:
+\begin{itemize}
+\item Using $S_N$ to make VR parameters is not as useful in problems that are highly challenging for $S_N$. This was specifically mentioned in terms of ray effects in many papers, and capturing behavior in a duct in the LIFT paper. 
+
+\item Using methods that incorporate more angular information tend to perform better than the corresponding methods that do not use that information.
+
+\item Methods that are complicated are often tricky to get to work well consistently.
+\end{itemize}
+
+\noindent What do I think is worth investigating? 
+\begin{enumerate}
+\item Using the LDO equations in and of themselves for problems with strong anisotropies.
+
+\item Using the LDO equations to make FW-CADIS parameters.
+
+\item The proposed Slaybaugh/ORNL method.
+\end{enumerate}
+
+As an aside, it might be worth determining if there are cases in which diffusion or quasi-diffusion is worthwhile. It seems antiquated, but for some really simple problems the savings could be worth it (if of course it is equally easy to generate inputs, run, etc.). 
+
+%%---------------------------------------------------------------------------%%
+%% BIBLIOGRAPHY
+%%---------------------------------------------------------------------------%%
+
+\newpage
+
+\singlespacing
+
+\bibliographystyle{physor}
+%\bibliographystyle{rnote}
+\bibliography{references}
+
+
+\end{document}
